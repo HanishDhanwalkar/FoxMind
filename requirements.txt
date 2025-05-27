@@ -1,0 +1,4 @@
+selenium
+BeautifulSoup
+readability-lxml
+ollama
