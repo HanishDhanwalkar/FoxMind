@@ -4,3 +4,5 @@
 */.env
 
 example*
+final/crawled_data/*
+final/reconstructions/*
