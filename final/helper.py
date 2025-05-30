@@ -15,11 +15,7 @@ def remove_img_tags(file_path):
 
 if __name__ == "__main__":
     v2 = True
-    
-    
-    
-    
-    
+
     if v2 == True:
         file_path = "limited-v2.html"
     else:

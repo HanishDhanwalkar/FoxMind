@@ -1,4 +1,4 @@
-from llm import OllamaClient
+from final.llm.base_llm import OllamaClient
 
 client = OllamaClient()
 
