@@ -1,5 +1,6 @@
 from playwright.sync_api import sync_playwright
 import time
+import argparse
 
 
 class Crawler:
@@ -494,76 +495,98 @@ class Crawler:
             self.browser.close()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Playwright Browser Crawler Example")
+    parser.add_argument("--run_example", choices=["1", "2"], help="Select the example to run")
+    args = parser.parse_args()
+    
+    
     crawler = Crawler()
-    try:
-        crawler.go_to_page("duckduckgo.com")
-        # crawler.go_to_page("duckduckgo.com")
+    
+    
+    
+    # Examples:
         
-        elements = crawler.crawl()
-        if not elements:
-            print("No elements found or crawl failed.")
-        else:
-            print("\n--- Crawled Elements ---")
-            for ele_str in elements:
-                print(ele_str)
-            print("--- End of Crawled Elements ---\n")
-
-        # Example interaction:
-        # Let's assume the search input gets id 0 and search button gets id 1
-        # This will depend on the actual output. You'll need to inspect `elements`
-        # and find the correct IDs.
-
-        # Find search input (usually has placeholder 'Search the web without being tracked' or similar)
-        search_input_id = None
-        search_button_id = None
-
-        for i, el_str in enumerate(elements): # The ID in the string is what we need
-            current_id_str = el_str.split("id=")[1].split(" ")[0].split(">")[0].replace("/", "")
-            current_id = int(current_id_str)
-
-            # if "<input" in el_str and ('placeholder="Search' in el_str or 'placeholder="Search without being tracked"' in el_str or 'aria-label="Search input"' in el_str or 'name="q"' in el_str):
-            if "<input" in el_str and ('Search' in el_str or 'name="q"' in el_str):
-                search_input_id = current_id
-                print(f"Found search input: id={search_input_id}, element: {el_str}")
-            elif "<textarea" in el_str and 'name="q"' in el_str:
-                search_input_id = current_id
-                print(f"Found search input: id={search_input_id}, element: {el_str}")
-            # if (("<button" in el_str or "<input" in el_str) and 
-            #     ('aria-label="Search"' in el_str or 'value="Search"' in el_str or 'Search</button>' in el_str or 'id="search_button"' in el_str or 'S</button>' in el_str)): # S is the icon
-            #     # Check if it's the main search button, not other buttons
-            #     if "Search</button>" in el_str or 'aria-label="Search"' in el_str and 'type="submit"' in el_str :
-            #          search_button_id = current_id
-            #          print(f"Found search button: id={search_button_id}, element: {el_str}")
-
-
-        if search_input_id is not None:
-            print(f"\nTyping 'Playwright library' into search input (id={search_input_id})...")
-            crawler.type(str(search_input_id), "Playwright library")
+    # Example #1 search query on duckduckgo.com
+    if args.run_example == "1":
+        try:
+            crawler.go_to_page("duckduckgo.com")
+            elements = crawler.crawl()
             
-            # Option 1: Press Enter
-            # print("Pressing Enter...")
-            # crawler.enter()
-
-            # Option 2: Click search button (if found)
-            if search_button_id is not None:
-                print(f"Clicking search button (id={search_button_id})...")
-                crawler.click(str(search_button_id))
+            if not elements:
+                print("No elements found or crawl failed.")
             else:
-                print("Search button not explicitly found, relying on Enter or form submission if applicable.")
-                crawler.enter() # Fallback to Enter if button not found
+                print("\n--- Crawled Elements ---")
+                for ele_str in elements:
+                    print(ele_str)
+                print("--- End of Crawled Elements ---\n")
 
-            time.sleep(3) # Wait for search results to load
-            print("\n--- Elements after search ---")
-            elements_after_search = crawler.crawl()
-            for ele_str in elements_after_search:
-                print(ele_str)
-            print("--- End of Elements after search ---\n")
+            # Find search input (usually has placeholder 'Search the web without being tracked' or similar)
+            search_input_id = None
+            search_button_id = None
 
-        else:
-            print("Could not find the search input field to type into.")
+            for i, el_str in enumerate(elements): # The ID in the string is what we need
+                current_id_str = el_str.split("id=")[1].split(" ")[0].split(">")[0].replace("/", "")
+                current_id = int(current_id_str)
 
-    except Exception as e:
-        print(f"An error occurred in the main execution: {e}")
-    finally:
-        print("Closing browser...")
+                # if "<input" in el_str and ('placeholder="Search' in el_str or 'placeholder="Search without being tracked"' in el_str or 'aria-label="Search input"' in el_str or 'name="q"' in el_str):
+                if "<input" in el_str and ('Search' in el_str or 'name="q"' in el_str):
+                    search_input_id = current_id
+                    print(f"Found search input: id={search_input_id}, element: {el_str}")
+                elif "<textarea" in el_str and 'name="q"' in el_str:
+                    search_input_id = current_id
+                    print(f"Found search input: id={search_input_id}, element: {el_str}")
+                # if (("<button" in el_str or "<input" in el_str) and 
+                #     ('aria-label="Search"' in el_str or 'value="Search"' in el_str or 'Search</button>' in el_str or 'id="search_button"' in el_str or 'S</button>' in el_str)): # S is the icon
+                #     # Check if it's the main search button, not other buttons
+                #     if "Search</button>" in el_str or 'aria-label="Search"' in el_str and 'type="submit"' in el_str :
+                #          search_button_id = current_id
+                #          print(f"Found search button: id={search_button_id}, element: {el_str}")
+
+
+            if search_input_id is not None:
+                print(f"\nTyping 'Playwright library' into search input (id={search_input_id})...")
+                crawler.type(str(search_input_id), "Playwright library")
+
+                # Option 2: Click search button (if found)
+                if search_button_id is not None:
+                    print(f"Clicking search button (id={search_button_id})...")
+                    crawler.click(str(search_button_id))
+                else:
+                    print("Search button not explicitly found, relying on Enter or form submission if applicable.")
+                    crawler.enter() # Fallback to Enter if button not found
+
+                time.sleep(3) # Wait for search results to load
+                print("\n--- Elements after search ---")
+                elements_after_search = crawler.crawl()
+                for ele_str in elements_after_search:
+                    print(ele_str)
+                print("--- End of Elements after search ---\n")
+
+            else:
+                print("Could not find the search input field to type into.")
+
+        except Exception as e:
+            print(f"An error occurred in the main execution: {e}")
+        finally:
+            print("Closing browser...")
+            crawler.close()
+
+    elif args.run_example == "2":
+        print("Running example 2: Clicking on a link")
+        url = "https://www.duckduckgo.com/?q=cars"
+        print(f"Opening {url}")
+        crawler.go_to_page(url)
+        
+        print("\n--- Elements after opening ---")
+        elements_after_open = crawler.crawl()
+        for ele_str in elements_after_open:
+            print(ele_str)
+        print("--- End of Elements after opening ---\n")
+        
+        # print("Clicking the first link...")
+        crawler.click(90)
+        # print("Closing browser...")
+        time.sleep(2)
         crawler.close()
+            
+                
