@@ -16,10 +16,10 @@ class OllamaClient:
             "model": "llama3.2",
             "messages": self.messages,
             # "stream": False,
-            # "options": {
-            #     "temperature": 0.1,
-            #     "num_predict": 1000,
-            # }
+            "options": {
+                "temperature": 0.1,
+                "num_predict": 1000,
+            }
         }
         response = self.client.chat(
             **payload
