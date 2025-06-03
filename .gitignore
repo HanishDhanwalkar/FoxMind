@@ -4,6 +4,9 @@
 .env
 */.env
 
+agents/
+
 example*
 final/crawled_data/*
 final/reconstructions/*
+
