@@ -1,9 +1,32 @@
 from playwright.sync_api import sync_playwright
 import time
 import argparse
+from termcolor import colored
 
 
 class Crawler:
+    """
+    Playwright Browser Crawler Example class.
+
+    This class provides an interface to interact with a webpage using Playwright's sync API.
+    It exposes methods to navigate to a page, click on elements, type into elements, and enter text into forms.
+    It also provides a way to capture a snapshot of the current page state and return it as a list of strings
+    representing the elements in the current viewport.
+
+    Available actions:
+
+    - `go_to_page(url)`: Navigate to the specified URL.
+    - `click(element_id_str)`: Click an element by its assigned ID.
+    - `type(element_id_str, text_to_type)`: Type text into an element by its assigned ID.
+    - `enter()`: Press the Enter key.
+    - `type_and_submit(element_id_str, text_to_type)`: Type text into an element and submit the form.
+    - `scroll(direction)`: Scroll the page up or down by one viewport height.
+    - `close()`: Close the browser.
+
+    The `crawl()` method is the main entry point to capture the page state.
+    It returns a list of strings representing the elements in the current viewport.
+    """
+
     def __init__(self):
         self.browser = (
             sync_playwright()
@@ -20,6 +43,8 @@ class Crawler:
 
     def go_to_page(self, url):
         """Navigates to the specified URL."""
+        
+        print(colored("Browser: ", on_color="on_yellow"), f"Navigating to: {url}")
         try:
             self.page.goto(
                 url=url if "://" in url else "http://" + url, timeout=60000)
@@ -34,6 +59,7 @@ class Crawler:
 
     def scroll(self, direction):
         """Scrolls the page up or down by one viewport height."""
+        print(colored("Browser: ", on_color="on_yellow"), f"Scrolling {direction}")
         if direction == "up":
             self.page.evaluate(
                 "(document.scrollingElement || document.body).scrollTop = "
@@ -49,6 +75,7 @@ class Crawler:
 
     def click(self, element_id_str):
         """Clicks an element by its assigned ID."""
+        print(colored("Browser: ", on_color="on_yellow"), f"Clicking element: {element_id_str}")
         try:
             element_id = int(element_id_str)
         except ValueError:
@@ -88,6 +115,7 @@ class Crawler:
 
     def type(self, element_id_str, text_to_type):
         """Clicks an element and then types text into it."""
+        print(colored("Browser: ", on_color="on_yellow"), f"Typing ***'{text_to_type}'*** into element: {element_id_str}")
         self.click(element_id_str)  # Click to focus
         try:
             # Add a small delay between key presses
@@ -98,6 +126,7 @@ class Crawler:
 
     def enter(self):
         """Presses the Enter key."""
+        print(colored("Browser: ", on_color="on_yellow"), f"Pressing Enter")
         try:
             self.page.keyboard.press("Enter")
             time.sleep(1)  # Wait for potential form submission or navigation
@@ -113,6 +142,7 @@ class Crawler:
         #     search_input_id = current_id
         #     print(f"Found search input: id={search_input_id}, element: {element_id_str}")
         # self.enter()
+        print(colored("Browser: ", on_color="on_yellow"), f"Typing ***'{text_to_type}'*** into element: {element_id_str}")
         try:
             self.type(element_id_str, text_to_type)
             self.enter()
@@ -496,7 +526,7 @@ class Crawler:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Playwright Browser Crawler Example")
-    parser.add_argument("--run_example", choices=["1", "2"], help="Select the example to run")
+    parser.add_argument("--run_example", choices=["1", "2", "3"], help="Select the example to run")
     args = parser.parse_args()
     
     
@@ -584,9 +614,16 @@ if __name__ == "__main__":
         print("--- End of Elements after opening ---\n")
         
         # print("Clicking the first link...")
-        crawler.click(90)
-        # print("Closing browser...")
-        time.sleep(2)
+        # crawler.click(90)
+        # # print("Closing browser...")
+        # time.sleep(2)
         crawler.close()
             
-                
+    elif args.run_example == "3":
+        crawler.go_to_page("duckduckgo.com")
+        elements = crawler.crawl()
+        for ele_str in elements:
+            print(ele_str)
+            
+        
+        crawler.close()
