@@ -1,6 +1,13 @@
 import ollama
 
 class OllamaClient:
+    """
+    A client for interacting with Ollama AI models.
+
+    The following actions are supported:
+    - `chat`: Engage in a conversation with the model.
+    - `generate`: Generate text based on a prompt.
+    """
     def __init__(self):
         self.client = ollama.Client(
             host='http://localhost:11434',
