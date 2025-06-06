@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Enabled Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general layout */
+        body {
+            font-family: "Inter", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to the top */
+            min-height: 100vh;
+            background-color: #f0f2f5; /* Light gray background */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .browser-container {
+            width: 100%;
+            max-width: 1200px; /* Max width for larger screens */
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+        .browser-frame {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px; /* Minimum height for the browser content */
+            flex-grow: 1;
+        }
+        .address-bar {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            gap: 10px;
+        }
+        .browser-content {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto; /* Enable scrolling for content */
+            color: #333;
+            line-height: 1.6;
+        }
+        .llm-interface {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .llm-output {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 6px;
+            min-height: 80px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            font-family: monospace;
+            color: #495057;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .browser-container {
+                padding: 15px;
+                gap: 15px;
+            }
+            .address-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .address-bar input, .address-bar button {
+                width: 100%;
+            }
+            .llm-interface {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="browser-container">
+        <div class="browser-frame">
+            <div class="address-bar">
+                <input type="text" id="urlInput" value="https://example.com"
+                       class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Enter URL">
+                <button id="goButton"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ease-in-out">
+                    Go
+                </button>
+            </div>
+            <div id="browserContent" class="browser-content">
+                <h2 class="text-xl font-semibold mb-3">Welcome to your LLM-Enabled Browser!</h2>
+                <p>This is a simulated browser environment. You can enter a URL above and click 'Go' to see content. The LLM will interact with this content.</p>
+                <p class="mt-4 text-gray-600">Current Page Content (Simulated):</p>
+                <div id="currentPageContent" class="bg-white p-4 border border-gray-200 rounded-md mt-2 text-sm text-gray-700">
+                    <p>Loading content for: <span id="currentUrlDisplay" class="font-medium text-blue-700">https://example.com</span></p>
+                    <p class="mt-2">This is a placeholder for the web page content. In a real browser, this would be the rendered HTML of the page.</p>
+                    <p class="mt-2">For now, imagine this is a simple page with a few elements:</p>
+                    <ul class="list-disc list-inside ml-4 mt-2">
+                        <li>A heading: "Main Title of the Page"</li>
+                        <li>A paragraph: "Some descriptive text about the page."</li>
+                        <li>A button: "Click Me!" (ID: 'myButton')</li>
+                        <li>An input field: "Enter your name" (ID: 'nameInput')</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="llm-interface">
+            <h3 class="text-lg font-semibold mb-3">LLM Task Input</h3>
+            <textarea id="llmTaskInput" rows="4"
+                      class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-y"
+                      placeholder="Enter a task for the LLM (e.g., 'Navigate to google.com', 'Click the button with text Click Me!', 'Type "John Doe" into the name input field')."></textarea>
+            <button id="sendTaskButton"
+                    class="mt-3 w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-200 ease-in-out">
+                Send Task to LLM
+            </button>
+
+            <h3 class="text-lg font-semibold mt-6 mb-3">LLM Output / Actions</h3>
+            <div id="llmOutput" class="llm-output">
+                LLM responses and simulated actions will appear here.
+            </div>
+            <div id="loadingIndicator" class="hidden mt-3 text-center text-gray-600">
+                <div class="animate-spin inline-block w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                Thinking...
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Global variables for Firebase configuration (provided by the environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        // DOM Elements
+        const urlInput = document.getElementById('urlInput');
+        const goButton = document.getElementById('goButton');
+        const browserContent = document.getElementById('browserContent');
+        const currentPageContentDiv = document.getElementById('currentPageContent');
+        const currentUrlDisplay = document.getElementById('currentUrlDisplay');
+        const llmTaskInput = document.getElementById('llmTaskInput');
+        const sendTaskButton = document.getElementById('sendTaskButton');
+        const llmOutput = document.getElementById('llmOutput');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // --- Simulated Browser Logic ---
+        let currentUrl = urlInput.value;
+
+        // Function to simulate loading a page
+        function loadPage(url) {
+            currentUrl = url;
+            urlInput.value = url;
+            currentUrlDisplay.textContent = url;
+            // Simulate different page contents based on URL for demonstration
+            let simulatedContent = '';
+            if (url.includes('google.com')) {
+                simulatedContent = `
+                    <h2 class="text-xl font-semibold mb-3">Google Search</h2>
+                    <p>This is a simulated Google search page.</p>
+                    <input type="text" id="searchBox" placeholder="Search..." class="p-2 border rounded-md w-full mt-2">
+                    <button id="searchButton" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded-md">Google Search</button>
+                    <p class="mt-4">Links:</p>
+                    <ul class="list-disc list-inside ml-4">
+                        <li><a href="#" class="text-blue-600 hover:underline" data-id="link1">About Google</a></li>
+                        <li><a href="#" class="text-blue-600 hover:underline" data-id="link2">Privacy Policy</a></li>
+                    </ul>
+                `;
+            } else if (url.includes('example.com')) {
+                simulatedContent = `
+                    <h2 class="text-xl font-semibold mb-3">Main Title of the Page</h2>
+                    <p>Some descriptive text about the page.</p>
+                    <button id="myButton" class="px-4 py-2 bg-indigo-500 text-white rounded-md mt-3">Click Me!</button>
+                    <div class="mt-4">
+                        <label for="nameInput" class="block text-sm font-medium text-gray-700">Enter your name:</label>
+                        <input type="text" id="nameInput" class="mt-1 p-2 border border-gray-300 rounded-md w-full" placeholder="Your Name">
+                    </div>
+                    <p class="mt-4">Another paragraph of content.</p>
+                    <a href="#" class="text-blue-600 hover:underline" data-id="contactLink">Contact Us</a>
+                `;
+            } else {
+                simulatedContent = `
+                    <h2 class="text-xl font-semibold mb-3">Content for: ${url}</h2>
+                    <p>This is a generic simulated page. The LLM will try to understand this content.</p>
+                    <p class="mt-2">This page has a generic button with ID 'genericBtn' and a text input with ID 'genericInput'.</p>
+                    <button id="genericBtn" class="px-4 py-2 bg-purple-500 text-white rounded-md mt-3">Generic Button</button>
+                    <input type="text" id="genericInput" class="mt-1 p-2 border border-gray-300 rounded-md w-full" placeholder="Generic Input">
+                `;
+            }
+            currentPageContentDiv.innerHTML = simulatedContent;
+            llmOutput.textContent = `Navigated to: ${url}`;
+        }
+
+        // Event listener for the Go button
+        goButton.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) {
+                loadPage(url);
+            }
+        });
+
+        // Allow pressing Enter in the URL input to navigate
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                goButton.click();
+            }
+        });
+
+        // Initial page load
+        loadPage(currentUrl);
+
+        // --- LLM Integration Logic ---
+
+        // Function to call the Gemini API
+        async function callGemini(prompt) {
+            loadingIndicator.classList.remove('hidden'); // Show loading indicator
+            llmOutput.textContent = "LLM is thinking..."; // Clear previous output
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} - ${errorData.error.message}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    return text;
+                } else {
+                    console.error("Unexpected LLM response structure:", result);
+                    return "Error: Could not get a valid response from the LLM.";
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return `Error: ${error.message}`;
+            } finally {
+                loadingIndicator.classList.add('hidden'); // Hide loading indicator
+            }
+        }
+
+        // Function to simulate LLM performing an action
+        function performAction(action) {
+            llmOutput.textContent += `\nPerforming action: ${action}`;
+
+            // Basic action parsing (can be expanded significantly)
+            if (action.startsWith('NAVIGATE:')) {
+                const url = action.substring('NAVIGATE:'.length).trim();
+                loadPage(url);
+                llmOutput.textContent += `\nNavigated to ${url}.`;
+            } else if (action.startsWith('CLICK:')) {
+                const target = action.substring('CLICK:'.length).trim();
+                const element = document.getElementById(target);
+                if (element) {
+                    element.click(); // Simulate click
+                    llmOutput.textContent += `\nClicked element with ID: ${target}.`;
+                    // Add specific responses for simulated clicks
+                    if (target === 'myButton') {
+                        llmOutput.textContent += `\n'Click Me!' button was clicked. A message box would appear here.`;
+                    } else if (target === 'searchButton') {
+                         llmOutput.textContent += `\n'Google Search' button was clicked. Simulating search results.`;
+                         currentPageContentDiv.innerHTML = `
+                            <h2 class="text-xl font-semibold mb-3">Search Results for "LLM Browser"</h2>
+                            <p>Result 1: <a href="#" class="text-blue-600 hover:underline">LLM Browser Project</a></p>
+                            <p>Result 2: <a href="#" class="text-blue-600 hover:underline">Building AI Browsers</a></p>
+                            <p>Result 3: <a href="#" class="text-blue-600 hover:underline">OpenAI Browser Plugin</a></p>
+                         `;
+                    }
+                } else {
+                    llmOutput.textContent += `\nError: Element with ID '${target}' not found.`;
+                }
+            } else if (action.startsWith('TYPE:')) {
+                const parts = action.substring('TYPE:'.length).trim().split(' INTO: ');
+                if (parts.length === 2) {
+                    const textToType = parts[0];
+                    const targetInputId = parts[1];
+                    const inputElement = document.getElementById(targetInputId);
+                    if (inputElement && (inputElement.tagName === 'INPUT' || inputElement.tagName === 'TEXTAREA')) {
+                        inputElement.value = textToType;
+                        llmOutput.textContent += `\nTyped "${textToType}" into input with ID: ${targetInputId}.`;
+                    } else {
+                        llmOutput.textContent += `\nError: Input element with ID '${targetInputId}' not found or not an input/textarea.`;
+                    }
+                } else {
+                    llmOutput.textContent += `\nError: Invalid TYPE action format. Expected 'TYPE: [text] INTO: [id]'.`;
+                }
+            } else if (action.startsWith('SCROLL:')) {
+                const direction = action.substring('SCROLL:'.length).trim().toLowerCase();
+                if (direction === 'down') {
+                    browserContent.scrollTop += 200; // Scroll down by 200px
+                    llmOutput.textContent += `\nScrolled down the page.`;
+                } else if (direction === 'up') {
+                    browserContent.scrollTop -= 200; // Scroll up by 200px
+                    llmOutput.textContent += `\nScrolled up the page.`;
+                } else {
+                    llmOutput.textContent += `\nError: Invalid SCROLL direction. Expected 'down' or 'up'.`;
+                }
+            }
+            // Add more actions as needed (e.g., FILL_FORM, EXTRACT_TEXT, etc.)
+        }
+
+        // Event listener for sending task to LLM
+        sendTaskButton.addEventListener('click', async () => {
+            const task = llmTaskInput.value.trim();
+            if (!task) {
+                llmOutput.textContent = "Please enter a task for the LLM.";
+                return;
+            }
+
+            // Get the current simulated page content
+            const pageContent = currentPageContentDiv.innerText; // Using innerText to get visible text
+
+            // Construct the prompt for the LLM
+            const llmPrompt = `
+                You are an AI assistant designed to act as a browser agent.
+                Your goal is to complete tasks given by the user by suggesting browser actions.
+                You are currently on the following simulated web page (content provided below).
+                Your available actions are:
+                - NAVIGATE: [URL] (e.g., NAVIGATE: https://www.google.com)
+                - CLICK: [element_id] (e.g., CLICK: myButton)
+                - TYPE: [text_to_type] INTO: [input_element_id] (e.g., TYPE: John Doe INTO: nameInput)
+                - SCROLL: [down/up] (e.g., SCROLL: down)
+
+                Analyze the current page content and the user's task.
+                Respond ONLY with the action you want to perform, in the specified format.
+                If no action is immediately possible or the task is complete, you can respond with "DONE".
+
+                Current URL: ${currentUrl}
+                --- Current Page Content ---
+                ${pageContent}
+                --- End Current Page Content ---
+
+                User's Task: "${task}"
+
+                What action should I perform?
+            `;
+
+            llmOutput.textContent = "Sending task to LLM...";
+            const llmResponse = await callGemini(llmPrompt);
+            llmOutput.textContent = `LLM Response: ${llmResponse}`;
+
+            // Attempt to perform the action suggested by the LLM
+            if (llmResponse && llmResponse.trim() !== "DONE") {
+                performAction(llmResponse.trim());
+            } else if (llmResponse.trim() === "DONE") {
+                llmOutput.textContent += "\nLLM indicates task is complete or no further action needed.";
+            }
+        });
+    </script>
+</body>
+</html>
