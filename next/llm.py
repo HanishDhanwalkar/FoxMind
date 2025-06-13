@@ -19,12 +19,12 @@ class LLMAgent:
         self.browser = Browser(headless=headless, slo_mode=slo_mode, verbose=verbose)
         self.browser.navigate(starting_url)
         
-        self.browsring_actions = {
+        self.browsing_actions = {
             "navigate": self.browser.navigate,
             "type": self.browser.type,
             "click": self.browser.click_element,
             "scroll": self.browser.scroll,
-            "fill input text": self.browser.fill_input,
+            "fill_input": self.browser.fill_input,
             "get text from viewport": self.browser.get_viewport_text_blocks,
             "done": self.browser.close
         }
@@ -34,17 +34,46 @@ class LLMAgent:
         
         llm_res = self.client.generate(f"""
 You are a LLM agent that decides browser actions based on the current state. Your overall task to complete is: {self.task_description}
-The current browser state is: {browser_state}. This is state is similified webpage.
+The current browser state is:
+{browser_state}
+
+*This is state is similified webpage.*
 Your response MUST be a JSON object with the following structure:
+```json
 {{'action': 'navigate' | 'click' | 'fill_input' | 'done',
     'element_id': 'id',
-    'value': 'locator_value' | 'URL' | None,
+    'value': 'locator_value' | 'URL' | 'up/down' |None,
     'text': 'text_to_type' | None}}
+```
 
-    Note: id for id can be obtained from the browser_state
+    Note: id for id can be obtained from the browser_state. 
+    Also, if you find a search box, you can directly use it using 'fill_input' action. No need to click on it before.
 - If 'action' is 'navigate', 'value' should be the URL.
 - If 'action' is 'click' or 'type', 'locator' and 'value' are required. 'text' is required for 'type'.
 - If the task is completed, set 'action' to 'done'.
+
+For eg.,
+If task to is to search 'some research topic to search' using ducduckgo and page contents are:
+Current Page: https://duckduckgo.com/
+Title: DuckDuckGo - Protection. Privacy. Peace of mind.
+
+Found 2 interactive elements (strictly in viewport):
+ 1. [INPUT] ID: searchbox_input | Search without being tracked
+ 2. [FORM] ID: searchbox_homepage |
+
+Found 3 links (strictly in viewport):
+ 1. Duck.ai -> https://duck.ai
+
+Expected outout:
+```json
+{{
+  "action": "fill_input",
+  "element_id": "searchbox_input",
+  "value": None,
+  "text": "some research topic to search"
+}}
+```
+
 """)    
         if self.verbose:
             print(colored("LLM Response:", "cyan"), llm_res)
@@ -55,8 +84,15 @@ Your response MUST be a JSON object with the following structure:
     def execute_action(self, action: dict) -> dict:
         print(colored("Executing action...", color="light_green"))
         
-        if action["action"] in self.browsring_actions:
-            self.browsring_actions[action["action"]](action["value"])
+        if action["action"] in ["navigate", "scroll"]:
+            self.browsing_actions[action["action"]](action["value"])
+        elif action["action"] in ["fill_input", "type"]:
+            self.browsing_actions[action["action"]](action["element_id"], action["text"])
+        elif action["action"] == "click":
+            self.browsing_actions[action["action"]](action["element_id"])
+        else:
+            
+            print(colored(f"Unknown action: {action['action']}", "red"))
         
         return action
 
@@ -75,7 +111,10 @@ if __name__ == "__main__":
         confirm_action = input(f"Execute action: {action}? (y/n) ")
         if confirm_action.lower() == "y":
             agent.execute_action(action)
-            action["action"] = "done"
+            exit = input("Exit? (y/n) ")
+            if exit.lower() == "y":
+                action["action"] = "done"
+                
         
         if action["action"] == "done":
             agent.task_complete = True
