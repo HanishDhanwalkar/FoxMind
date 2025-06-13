@@ -1,7 +1,15 @@
 import re
 import json
-import ast
 
+# import ast
+# def extract_json_from_response(text):
+#     try:
+#         data = ast.literal_eval(text)
+#         # print(data)
+#         return data
+#     except Exception as e:
+#         print("Parsing failed:", e)
+#     return None
 
 # def extract_json_from_response(text):
 #     match = re.search(r'\{(?:[^{}]|(?R))*\}', text, re.DOTALL)
@@ -14,37 +22,37 @@ import ast
 #         print("No JSON object found.")
 #     return None
 
+# def extract_json_from_response(text):
+#     match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+#     if match:
+#         json_str = match.group(1).strip('"').strip("'")
+#         # print("Extracted JSON string:", json_str)
+#         try:
+#             json_obj = json.loads(json.dumps(json_str))
+#             print(type(json_obj))
+#             return json_obj
+#         except json.JSONDecodeError as e:
+#             print("JSON parse error:", e)
+#     else:
+#         print("No JSON block found.")
+#     return None
 
 def extract_json_from_response(text):
-    try:
-        data = ast.literal_eval(text)
-        # print(data)
-        return data
-    except Exception as e:
-        print("Parsing failed:", e)
-        
-if __name__ == "__main__":
-    # text = "{'key': 'value'}"
-    text = """Execute action: Based on the current browser state, I will perform the following actions:
+    match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+    if match:
+        json_str = match.group(1).strip()
 
-1. Navigate to DuckDuckGo and search for supercars:
-   - action: navigate
-   - value: https://duckduckgo.com/?q=supercars
+        # Replace Python-style literals with valid JSON
+        json_str = json_str.replace("None", "null")
+        json_str = json_str.replace("True", "true")
+        json_str = json_str.replace("False", "false")
 
-2. Wait for the page to load before proceeding.
-
-Here is the JSON object representing these actions:
-
-```
-[
-  {
-    "action": "navigate",
-    "value": "https://duckduckgo.com/?q=supercars"
-  },
-  {
-    "action": "wait"
-  }
-]
-```
-"""
-    print(extract_json_from_response(text))
+        try:
+            json_obj = json.loads(json_str)
+            print(type(json_obj))  # Should print <class 'dict'>
+            return json_obj
+        except json.JSONDecodeError as e:
+            print("JSON parse error:", e)
+    else:
+        print("No JSON block found.")
+    return None
