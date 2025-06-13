@@ -1,101 +1,83 @@
-import os
-import ollama
+from base_llm import OllamaClient
+from browser import Browser
+from helper import extract_json_from_response
+from termcolor import colored
 
-model = "llama3.2"
-
-files_dir = "next/files/"
-
-def search_text_files(keyword: str) -> str:
-    directory = os.listdir(files_dir)
-    for fname in directory:
-        if os.path.isfile(files_dir + fname):
-            if(fname.endswith(".txt")):
-                f = open(files_dir + fname, 'r')
-                file_content = f.read()
-            
-            prompt = f"Respond only 'yes' or 'no', do not add any additional information. Is the following text about {keyword}?  {file_content}"
-
-            res = ollama.chat(
-                model=model,
-                messages=[{'role': 'user', 'content': prompt}]
-            )
-           
-            if 'Yes' in res['message']['content']:
-                f.close()
-                return files_dir + fname
-
-    return "None"
-
-available_functions = {
-  'Search inside text files':search_text_files,
-}
-
-ollama_tools=[
-     {
-      'type': 'function',
-      'function': {
-        'name': 'Search inside text files',
-        'description': 'This tool searches in plaintext or text files in the local file system for descriptions or mentions of the keyword.',
-        'parameters': {
-          'type': 'object',
-          'properties': {
-            'keyword': {
-              'type': 'string',
-              'description': 'Generate one keyword from the user request to search for in text files',
-            },
-          },
-          'required': ['keyword'],
-        },
-      },
-    },
-  ]
-
-user_input = input("What would you like to search for?")
-
-messages = [{'role': 'user', 'content':user_input}]
-
-response: ollama.ChatResponse = ollama.chat(
-  model=model,
-  messages=messages,
-  tools=ollama_tools
-)
-
-# this is a place holder that to use to see whether the tools return anything 
-output = []
-
-if response.message.tool_calls:
-    for tool_call in response.message.tool_calls:
-
-        # Ensure the function is available, and then call it
-        if function_to_call := available_functions.get(tool_call.function.name):
-            print('Calling tool: ', tool_call.function.name, ' \n with arguments: ', tool_call.function.arguments)
-            tool_res = function_to_call(**tool_call.function.arguments)
-
-            print(" Tool response is " + str(tool_res))
-
-        if(str(tool_res) != "None"):
-            output.append(str(tool_res))
-            print(tool_call.function.name, ' has output: ', output)
-        else:
-            print('Could not find ', tool_call.function.name)
-
-    # Now chat with the model using the tool call results
-    # Add the function response to messages for the model to use
-    messages.append(response.message)
-
-    prompt = '''
-        If the tool output contains one or more file names, 
-        then give the user only the filename found. Do not add additional details. 
-        If the tool output is empty ask the user to try again. Here is the tool output: 
-    '''
-
-    messages.append({'role': 'tool', 'content': prompt + " " + ", ".join(str(x) for x in output)})
+class LLMAgent:
+    def __init__(self, task_description: str, ollama_model: str = "llama3.2", verbose=True):
+        self.task_description = task_description
+        self.ollama_model = ollama_model
+        self.task_complete = False
+        self.verbose = verbose
+        
+        self.client = OllamaClient(model=ollama_model)
+        
     
-    # Get a response from model with function outputs
-    final_response = ollama.chat(
-        model=model, 
-        messages=messages)
-    print('Final response:', final_response.message.content)
+    
+        
+    def start_browser(self, headless=False, slo_mode=True, verbose=True, starting_url="https://www.duckduckgo.com"):
+        self.browser = Browser(headless=headless, slo_mode=slo_mode, verbose=verbose)
+        self.browser.navigate(starting_url)
+        
+        self.browsring_actions = {
+            "navigate": self.browser.navigate,
+            "type": self.browser.type,
+            "click": self.browser.click_element,
+            "scroll": self.browser.scroll,
+            "fill input text": self.browser.fill_input,
+            "get text from viewport": self.browser.get_viewport_text_blocks,
+            "done": self.browser.close
+        }
+        
+    def decide_action(self, browser_state: dict) -> dict:
+        print("Deciding action...")
+        
+        llm_res = self.client.generate(f"""
+You are a LLM agent that decides browser actions based on the current state. Your overall task to complete is: {self.task_description}
+The current browser state is: {browser_state}. This is state is similified webpage.
+Your response MUST be a JSON object with the following structure:
+{{'action': 'navigate' | 'click' | 'fill_input' | 'done',
+    'element_id': 'id',
+    'value': 'locator_value' | 'URL' | None,
+    'text': 'text_to_type' | None}}
 
-else:
-    print('No tool calls returned from model')
+    Note: id for id can be obtained from the browser_state
+- If 'action' is 'navigate', 'value' should be the URL.
+- If 'action' is 'click' or 'type', 'locator' and 'value' are required. 'text' is required for 'type'.
+- If the task is completed, set 'action' to 'done'.
+""")    
+        if self.verbose:
+            print(colored("LLM Response:", "cyan"), llm_res)
+        
+        action = extract_json_from_response(llm_res)
+        return action
+    
+    def execute_action(self, action: dict) -> dict:
+        print(colored("Executing action...", color="light_green"))
+        
+        if action["action"] in self.browsring_actions:
+            self.browsring_actions[action["action"]](action["value"])
+        
+        return action
+
+    def close(self):
+        print("Exiting browser...")
+        self.browser.close()
+        
+if __name__ == "__main__":
+    agent = LLMAgent("go to duckduckgo and search for supercars", "deepseek-r1:7b")
+    
+    agent.start_browser(headless=False, slo_mode=True, verbose=True, starting_url="https://www.duckduckgo.com")
+    
+    while not agent.task_complete:
+        browser_state = agent.browser.crawl()
+        action = agent.decide_action(browser_state)
+        confirm_action = input(f"Execute action: {action}? (y/n) ")
+        if confirm_action.lower() == "y":
+            agent.execute_action(action)
+            action["action"] = "done"
+        
+        if action["action"] == "done":
+            agent.task_complete = True
+    
+    agent.close()
