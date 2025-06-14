@@ -10,19 +10,22 @@ class OllamaClient:
     - `chat`: Engage in a conversation with the model.
     - `generate`: Generate text based on a prompt.
     """
-    def __init__(self, model="llama3.2"):
+    def __init__(self, model="llama3.2", stream=True, verbose=True):
         print(colored(f"Starting chat with Ollama model: {colored(model, 'yellow')}", "cyan", attrs=["underline"]))
         self.model = model
         self.client = ollama.Client(
             host='http://localhost:11434',
             headers={'x-some-header': 'some-value'}
         )
+        self.stream = stream
         self.system_msg = {"role": "system", "content": ""}
         self.messages = []
         
         if self.system_msg["content"] != "":
             self.messages.append(self.system_msg)
             print("System message set to:", self.system_msg["content"])
+        
+        self.verbose = verbose
 
     def send_to_llm(self, prompt):           
         self.messages.append({"role": "user", "content": prompt})
@@ -30,7 +33,7 @@ class OllamaClient:
         payload = {
             "model": self.model,
             "messages": self.messages,
-            # "stream": False,
+            "stream": self.stream,
             "options": {
                 "temperature": 0.1,
                 "num_predict": 1000,
@@ -40,7 +43,14 @@ class OllamaClient:
             **payload
         )
         
-        self.messages.append({"role": "assistant", "content": response.message.content})
+        full_response = ""
+        if self.stream:
+            for chunk in response:
+                full_response += str(chunk.message.content)
+                if self.verbose:
+                    print(chunk.message.content, end="")
+        
+        self.messages.append({"role": "assistant", "content": full_response})
     
     def generate(self, prompt):
         self.send_to_llm(prompt)
